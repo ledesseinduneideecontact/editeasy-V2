@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
 import sys
+import logging
 from pathlib import Path
 
 # Add analyzers to path
@@ -11,15 +12,26 @@ from analyzers.quality import QualityAnalyzer
 from analyzers.scene import SceneAnalyzer
 from analyzers.content import ContentAnalyzer
 from analyzers.music import MusicAnalyzer
+from video_processor import VideoProcessor
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 CORS(app)
 
-# Initialize analyzers
+# Initialize analyzers (for backward compatibility)
 quality_analyzer = QualityAnalyzer()
-scene_analyzer = SceneAnalyzer()
+scene_analyzer = SceneAnalyzer(use_pyscenedetect=True)
 content_analyzer = ContentAnalyzer()
 music_analyzer = MusicAnalyzer()
+
+# Initialize video processor (new)
+video_processor = VideoProcessor(use_moviepy=True)
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -91,7 +103,61 @@ def analyze():
         print(f"Analysis error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/process_video', methods=['POST'])
+def process_video():
+    """
+    Complete video processing with beat sync and MoviePy rendering
+
+    Expects JSON:
+    {
+        "files": [...],
+        "music": {...},
+        "settings": {...},
+        "outputPath": "..."
+    }
+    """
+    try:
+        data = request.json
+        files = data.get('files', [])
+        music = data.get('music')
+        settings = data.get('settings', {})
+        output_path = data.get('outputPath', '/tmp/output.mp4')
+
+        logger.info(f"🎬 Processing video with {len(files)} files")
+
+        # Process video with full pipeline
+        result = video_processor.process(
+            files=files,
+            music=music,
+            settings=settings,
+            output_path=output_path
+        )
+
+        logger.info(f"✓ Video processing complete: {result['output_path']}")
+
+        return jsonify({
+            'success': True,
+            'outputPath': result['output_path'],
+            'filesAnalysis': result['files_analysis'],
+            'musicAnalysis': result['music_analysis'],
+            'editPlan': {
+                'clips': len(result['edit_plan']['clips']),
+                'transitions': len(result['edit_plan']['transitions']),
+                'duration': result['edit_plan']['target_duration']
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"Video processing error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    print(f"🤖 AI Processor starting on port {port}...")
+    logger.info(f"🤖 AI Processor starting on port {port}...")
+    logger.info("📍 Available endpoints:")
+    logger.info("  - GET  /health          : Health check")
+    logger.info("  - POST /analyze         : Analyze files only")
+    logger.info("  - POST /process_video   : Full video processing (NEW)")
     app.run(host='0.0.0.0', port=port, debug=True)

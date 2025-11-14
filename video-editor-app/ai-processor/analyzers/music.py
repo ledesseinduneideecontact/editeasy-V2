@@ -3,37 +3,73 @@ import subprocess
 import json
 import tempfile
 import os
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class MusicAnalyzer:
-    """Analyze music files for tempo, beats, energy"""
+    """
+    Analyze music files for tempo, beats, energy, and onsets
+    Optimized for video synchronization
+    """
 
     def __init__(self):
-        pass
+        """Initialize MusicAnalyzer"""
+        # Try to import librosa
+        try:
+            import librosa
+            self.librosa_available = True
+            logger.info("✓ Librosa available - using advanced music analysis")
+        except ImportError:
+            self.librosa_available = False
+            logger.warning("⚠ Librosa not available - using basic analysis")
+            logger.warning("  Install with: pip install librosa soundfile")
 
     def analyze(self, music_path):
         """
-        Analyze music file for tempo, beats, energy, and duration
-        Returns dict with analysis results
+        Analyze music file for tempo, beats, energy, onsets, and duration
+
+        Args:
+            music_path: Path to audio file
+
+        Returns:
+            dict: {
+                'duration': float,
+                'bpm': float,
+                'beats': list of beat dicts with time and strength,
+                'onsets': list of onset times (impactful moments),
+                'energy': float (0-1),
+                'mood': str,
+                'sections': list of musical sections
+            }
         """
         try:
+            logger.info(f"🎵 Analyzing music: {os.path.basename(music_path)}")
+
             # Get audio duration and basic info
             duration = self._get_duration(music_path)
+            logger.info(f"  Duration: {duration:.2f}s")
 
             # Try to analyze with librosa if available
-            try:
-                import librosa
-                return self._analyze_with_librosa(music_path, duration)
-            except ImportError:
-                print("librosa not available, using basic analysis")
+            if self.librosa_available:
+                result = self._analyze_with_librosa(music_path, duration)
+                logger.info(f"  ✓ Advanced analysis complete: BPM={result['bpm']:.1f}, Mood={result.get('mood', 'unknown')}")
+                return result
+            else:
+                logger.info("  Using basic analysis (librosa not available)")
                 return self._basic_analysis(music_path, duration)
 
         except Exception as e:
-            print(f"Music analysis error: {str(e)}")
+            logger.error(f"  ❌ Music analysis error: {str(e)}")
             return {
                 'duration': 180,
                 'bpm': 120,
                 'beats': [],
-                'energy': 0.7
+                'onsets': [],
+                'energy': 0.7,
+                'mood': 'unknown'
             }
 
     def _get_duration(self, music_path):
@@ -53,44 +89,120 @@ class MusicAnalyzer:
             return 180.0  # Default 3 minutes
 
     def _analyze_with_librosa(self, music_path, duration):
-        """Analyze music using librosa library"""
+        """
+        Analyze music using librosa library with advanced features
+        Detects beats, onsets, energy, and musical structure
+        """
         import librosa
 
-        # Load audio file
-        y, sr = librosa.load(music_path, duration=60)  # Analyze first 60 seconds
+        logger.info("  🔍 Running advanced Librosa analysis...")
 
-        # Tempo and beat tracking
-        tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr)
+        # Load audio file (analyze first 90 seconds for better accuracy)
+        analysis_duration = min(duration, 90.0)
+        y, sr = librosa.load(music_path, duration=analysis_duration)
+
+        logger.info(f"  Sample rate: {sr} Hz, Samples: {len(y)}")
+
+        # === BEAT DETECTION ===
+        logger.info("  🥁 Detecting beats...")
+        tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr, start_bpm=120, units='frames')
         beat_times = librosa.frames_to_time(beat_frames, sr=sr)
 
-        # Energy/RMS
+        logger.info(f"  Detected {len(beat_times)} beats at {tempo:.1f} BPM")
+
+        # === ONSET DETECTION (Impactful moments) ===
+        logger.info("  💥 Detecting onsets (impactful moments)...")
+        onset_frames = librosa.onset.onset_detect(
+            y=y,
+            sr=sr,
+            backtrack=True,
+            units='frames'
+        )
+        onset_times = librosa.frames_to_time(onset_frames, sr=sr)
+
+        # Get onset strength for each onset
+        onset_env = librosa.onset.onset_strength(y=y, sr=sr)
+        onset_strengths = []
+        for frame in onset_frames:
+            if frame < len(onset_env):
+                onset_strengths.append(float(onset_env[frame]))
+            else:
+                onset_strengths.append(1.0)
+
+        # Normalize onset strengths
+        if onset_strengths:
+            max_strength = max(onset_strengths)
+            onset_strengths = [s / max_strength for s in onset_strengths]
+
+        logger.info(f"  Detected {len(onset_times)} onsets")
+
+        # === ENERGY ANALYSIS ===
         rms = librosa.feature.rms(y=y)[0]
         energy = float(np.mean(rms))
-        energy_normalized = min(energy * 10, 1.0)  # Normalize
+        energy_normalized = min(energy * 10, 1.0)  # Normalize to 0-1
 
-        # Spectral features for mood
+        # === SPECTRAL FEATURES ===
         spectral_centroid = librosa.feature.spectral_centroid(y=y, sr=sr)[0]
         brightness = float(np.mean(spectral_centroid))
 
-        # Zero crossing rate (indicates noisiness/percussion)
+        # Zero crossing rate (percussion/noisiness)
         zcr = librosa.feature.zero_crossing_rate(y)[0]
         percussiveness = float(np.mean(zcr))
 
-        # Generate beat timestamps for entire duration
-        beat_interval = 60.0 / tempo  # seconds per beat
+        # === GENERATE BEAT TIMELINE ===
+        # Create precise beat list with strength indicators
         beats = []
-        t = beat_interval
-        while t < duration:
+        beat_interval = 60.0 / tempo  # seconds per beat
+
+        # Use detected beat times for precision
+        for i, beat_time in enumerate(beat_times):
+            # Determine if this is a strong beat (downbeat)
+            is_downbeat = i % 4 == 0  # Every 4th beat is typically a downbeat
+
             beats.append({
-                'time': float(t),
-                'strength': 1.0 if t in beat_times else 0.5
+                'time': float(beat_time),
+                'strength': 1.0 if is_downbeat else 0.7,
+                'type': 'downbeat' if is_downbeat else 'beat',
+                'index': i
             })
-            t += beat_interval
+
+        # Extend beats to full duration if needed
+        if duration > analysis_duration:
+            last_beat_time = beats[-1]['time'] if beats else 0
+            beat_idx = len(beats)
+
+            while last_beat_time < duration:
+                last_beat_time += beat_interval
+                is_downbeat = beat_idx % 4 == 0
+
+                beats.append({
+                    'time': float(last_beat_time),
+                    'strength': 0.9 if is_downbeat else 0.6,  # Lower confidence for extrapolated beats
+                    'type': 'downbeat' if is_downbeat else 'beat',
+                    'index': beat_idx,
+                    'extrapolated': True
+                })
+                beat_idx += 1
+
+        # === ONSET TIMELINE ===
+        onsets = []
+        for i, (onset_time, strength) in enumerate(zip(onset_times, onset_strengths)):
+            onsets.append({
+                'time': float(onset_time),
+                'strength': float(strength),
+                'index': i
+            })
+
+        # Sort by time
+        onsets.sort(key=lambda x: x['time'])
+
+        logger.info(f"  ✓ Analysis complete: {len(beats)} beats, {len(onsets)} onsets")
 
         return {
             'duration': float(duration),
             'bpm': float(tempo),
-            'beats': beats[:100],  # Limit to first 100 beats
+            'beats': beats,
+            'onsets': onsets,
             'energy': float(energy_normalized),
             'brightness': float(brightness / sr * 2),  # Normalize
             'percussiveness': float(percussiveness),
@@ -98,25 +210,47 @@ class MusicAnalyzer:
         }
 
     def _basic_analysis(self, music_path, duration):
-        """Basic analysis without librosa"""
+        """Basic analysis without librosa (fallback)"""
+        logger.info("  Using basic beat estimation (120 BPM)")
+
         # Estimate BPM based on typical music (default 120 BPM)
         bpm = 120
 
         # Generate regular beats
         beat_interval = 60.0 / bpm
         beats = []
+        onsets = []
         t = beat_interval
-        while t < duration and len(beats) < 100:
+        beat_idx = 0
+
+        while t < duration:
+            is_downbeat = beat_idx % 4 == 0
+
             beats.append({
                 'time': float(t),
-                'strength': 1.0 if int(t / beat_interval) % 4 == 0 else 0.5
+                'strength': 1.0 if is_downbeat else 0.6,
+                'type': 'downbeat' if is_downbeat else 'beat',
+                'index': beat_idx
             })
+
+            # Every downbeat is an onset
+            if is_downbeat:
+                onsets.append({
+                    'time': float(t),
+                    'strength': 0.8,
+                    'index': len(onsets)
+                })
+
             t += beat_interval
+            beat_idx += 1
+
+        logger.info(f"  Generated {len(beats)} beats, {len(onsets)} onsets")
 
         return {
             'duration': float(duration),
             'bpm': float(bpm),
             'beats': beats,
+            'onsets': onsets,
             'energy': 0.7,
             'mood': 'neutral'
         }
