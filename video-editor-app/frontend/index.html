@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Video Editor - Montage Automatique Intelligent</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎬 AI Video Editor</h1>
+            <p class="subtitle">Montage automatique intelligent de vos vidéos et photos</p>
+        </header>
+
+        <main>
+            <!-- Section Upload -->
+            <section class="upload-section" id="uploadSection">
+                <div class="upload-zone" id="uploadZone">
+                    <svg class="upload-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    <h2>Glissez vos fichiers ici</h2>
+                    <p>ou cliquez pour sélectionner</p>
+                    <p class="file-types">Photos (JPG, PNG) et Vidéos (MP4, MOV, AVI)</p>
+                    <input type="file" id="fileInput" multiple accept="image/*,video/*" hidden>
+                </div>
+
+                <div class="music-upload">
+                    <label for="musicInput" class="music-label">
+                        🎵 Ajouter une musique de fond
+                    </label>
+                    <input type="file" id="musicInput" accept="audio/*">
+                    <span id="musicFileName" class="file-name"></span>
+                </div>
+            </section>
+
+            <!-- Section Fichiers uploadés -->
+            <section class="files-section" id="filesSection" style="display: none;">
+                <div class="section-header">
+                    <h2>📁 Vos fichiers (<span id="fileCount">0</span>)</h2>
+                    <button class="btn-secondary" id="addMoreBtn">+ Ajouter plus</button>
+                </div>
+                <p class="info-text">Glissez-déposez pour réorganiser l'ordre</p>
+                <div class="files-grid" id="filesGrid"></div>
+            </section>
+
+            <!-- Section Paramètres -->
+            <section class="settings-section" id="settingsSection" style="display: none;">
+                <h2>⚙️ Paramètres de montage</h2>
+                <div class="settings-grid">
+                    <div class="setting-item">
+                        <label for="videoDuration">Durée cible de la vidéo</label>
+                        <select id="videoDuration">
+                            <option value="auto">Automatique (basé sur la musique)</option>
+                            <option value="30">30 secondes</option>
+                            <option value="60" selected>1 minute</option>
+                            <option value="120">2 minutes</option>
+                            <option value="180">3 minutes</option>
+                            <option value="300">5 minutes</option>
+                        </select>
+                    </div>
+
+                    <div class="setting-item">
+                        <label for="transitionStyle">Style de transitions</label>
+                        <select id="transitionStyle">
+                            <option value="auto" selected>Automatique (adapté à la musique)</option>
+                            <option value="smooth">Doux (fondus)</option>
+                            <option value="dynamic">Dynamique (cuts)</option>
+                            <option value="mixed">Mixte</option>
+                        </select>
+                    </div>
+
+                    <div class="setting-item">
+                        <label for="videoQuality">Qualité de sortie</label>
+                        <select id="videoQuality">
+                            <option value="720p">HD (720p)</option>
+                            <option value="1080p" selected>Full HD (1080p)</option>
+                            <option value="4k">4K (2160p)</option>
+                        </select>
+                    </div>
+
+                    <div class="setting-item">
+                        <label for="musicSync">Synchronisation musicale</label>
+                        <select id="musicSync">
+                            <option value="high" selected>Élevée (transitions sur les beats)</option>
+                            <option value="medium">Moyenne</option>
+                            <option value="low">Faible</option>
+                        </select>
+                    </div>
+
+                    <div class="setting-item checkbox-item">
+                        <input type="checkbox" id="enableStabilization" checked>
+                        <label for="enableStabilization">Activer la stabilisation vidéo</label>
+                    </div>
+
+                    <div class="setting-item checkbox-item">
+                        <input type="checkbox" id="enableColorGrading" checked>
+                        <label for="enableColorGrading">Harmoniser les couleurs</label>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Bouton de génération -->
+            <div class="action-section" id="actionSection" style="display: none;">
+                <button class="btn-primary" id="generateBtn">
+                    ✨ Générer la vidéo automatiquement
+                </button>
+            </div>
+
+            <!-- Section Progression -->
+            <section class="progress-section" id="progressSection" style="display: none;">
+                <h2>🔄 Traitement en cours...</h2>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <p class="progress-text" id="progressText">Initialisation...</p>
+                <div class="progress-steps" id="progressSteps"></div>
+            </section>
+
+            <!-- Section Résultat -->
+            <section class="result-section" id="resultSection" style="display: none;">
+                <h2>✅ Votre vidéo est prête !</h2>
+                <video id="resultVideo" controls></video>
+                <div class="result-actions">
+                    <button class="btn-primary" id="downloadBtn">
+                        📥 Télécharger la vidéo
+                    </button>
+                    <button class="btn-secondary" id="newVideoBtn">
+                        🔄 Créer une nouvelle vidéo
+                    </button>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>Powered by AI • FFmpeg • Open Source</p>
+        </footer>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

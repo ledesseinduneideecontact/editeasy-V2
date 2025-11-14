@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./outputs:/app/outputs
+      - ./temp:/app/temp
+    environment:
+      - NODE_ENV=production
+      - AI_SERVICE_URL=http://ai-processor:5000
+    depends_on:
+      - ai-processor
+    restart: unless-stopped
+
+  ai-processor:
+    build:
+      context: ./ai-processor
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./uploads:/app/uploads
+    environment:
+      - FLASK_ENV=production
+    restart: unless-stopped
+
+volumes:
+  uploads:
+  outputs:
+  temp:
