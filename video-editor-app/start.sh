@@ -62,6 +62,13 @@ fi
 # Create necessary directories
 mkdir -p uploads outputs temp
 
+# Create .env if it doesn't exist
+if [ ! -f ".env" ]; then
+    echo -e "${BLUE}📝 Creating .env file from .env.example...${NC}"
+    cp .env.example .env
+    echo -e "${GREEN}✓ .env file created${NC}"
+fi
+
 # Start services
 echo -e "${BLUE}🚀 Starting services...${NC}"
 

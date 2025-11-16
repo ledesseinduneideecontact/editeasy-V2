@@ -60,6 +60,14 @@ if not exist "uploads" mkdir uploads
 if not exist "outputs" mkdir outputs
 if not exist "temp" mkdir temp
 
+REM Create .env if it doesn't exist
+if not exist ".env" (
+    echo.
+    echo Creating .env file from .env.example...
+    copy .env.example .env >nul
+    echo [OK] .env file created
+)
+
 echo.
 echo ========================================
 echo Starting services...
